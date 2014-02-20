@@ -46,28 +46,11 @@ server.on('login', function(client) {
 	var mcclient = mc17.createClient({
 		host: remote_server.host,
 		port: remote_server.port,
-		username: "danny8376"   // for test
+		//username: "guest"   // for test
+		username: client.username
 	});
 	
 	var addr = client.socket.remoteAddress + ':' + client.socket.remotePort;
-	
-	// !!! use this one instead of zlib.deflate, which cause weird behavior
-	function deflateData(inbuf, cb) {
-		var deflater = zlib.createDeflate({
-			flush: zlib.Z_FINISH,
-			level: zlib.Z_DEFAULT_COMPRESSION,
-			windowBits: zlib.MAX_WBITS,
-			data_type: zlib.Z_BINARY
-		});
-		var outbuf = new Buffer([]);
-		deflater.on('data', function(data) {
-			data.copy(outbuf, outbuf.length);
-		});
-		deflater.on('end', function() {
-			cb(outbuf);
-		});
-		deflater.write(inbuf);
-	}
 	
 	function fixLevelType(levelType) {
 		// trans new types to similar type
@@ -102,21 +85,51 @@ server.on('login', function(client) {
 	
 var last_packet; // for debug
 	
+	var packet2ClientCount = 0;
+	var packet2ClientQueue = [];
+	var packet2ClientPakcets = {};
+	var packet2ClientSending = false;
+	function writePacket(no, id, packet) { // no === false   =>  nextTick call
+		if (no !== false) packet2ClientPakcets[no] = [id, packet];
+		if (packet2ClientQueue[0] + 1000 < no) { // 1000 - i'm not sure why i choose this number XD
+			client.end("Maybe this ridge is too tired!");
+console.log(packet2ClientPakcets[packet2ClientQueue[0]]);
+		}
+		if (!packet2ClientSending || no === false) { // try to send when free or inner call
+			packet2ClientSending = true; // processing !
+			var head = packet2ClientQueue[0];
+			var packet = packet2ClientPakcets[head];
+			if (packet) { // got packet - send it out!
+				packet2ClientQueue.shift(); // remove first - we have sent it
+				delete packet2ClientPakcets[head]; // remove it form pending list
+				client.write(packet[0], packet[1]); // sent it out~
+				process.nextTick(function () { writePacket(false) }); // try to send next packet
+			} else { // no packet can be sent - wait for next pending packet
+				packet2ClientSending = false;
+			}
+		}
+	}
+	function removePendingPacket(no) {
+		packet2ClientQueue.splice(packet2ClientQueue.indexOf(no), 1);
+	}
+	
 	mcclient.on('packet', function(packet) { // server to clinet (1.7 to 1.6)
+		var packetNo = packet2ClientCount ++;
 try {
 		if (mcclient.state == states.PLAY) { // OWO
 			if (packet.id == 2 && packet.username) { // weird to receive login success packet here - drop it
 				//console.log(packet);
 				return;
 			}
+			packet2ClientQueue.push(packetNo); // !!! IMPORTANT !!! - remember to remove packet that didn't sent out
 last_packet = packet;
 			switch(packet.id) { // 1.7 packet to 1.6 translate
 			case 0x00: // keepalive
-				client.write(0x00, packet);
+				writePacket(packetNo, 0x00, packet);
 				break;
 			case 0x01: // join game
 				packet.levelType = fixLevelType(packet.levelType);
-				client.write(0x01, packet);
+				writePacket(packetNo, 0x01, packet);
 				break;
 			case 0x02: // chat
 //console.log("ori", packet);
@@ -156,81 +169,83 @@ last_packet = packet;
 				}
 				packet.message = JSON.stringify(ret_msg_json);
 //console.log("new", packet);
-				client.write(0x03, packet);
+				writePacket(packetNo, 0x03, packet);
 				break;
 			case 0x03: // time update
-				client.write(0x04, packet);
+				writePacket(packetNo, 0x04, packet);
 				break;
 			case 0x04: // entity equipment
 				if (packet.item)
-					client.write(0x05, packet);
+					writePacket(packetNo, 0x05, packet);
+				else
+					removePendingPacket(packetNo);
 				break;
 			case 0x05: // spawn position
-				client.write(0x06, packet);
+				writePacket(packetNo, 0x06, packet);
 				break;
 			case 0x06: // update health
-				client.write(0x08, packet);
+				writePacket(packetNo, 0x08, packet);
 				break;
 			case 0x07: // update health
 				packet.worldHeight = 256;
 				packet.levelType = fixLevelType(packet.levelType);
-				client.write(0x09, packet);
+				writePacket(packetNo, 0x09, packet);
 				break;
 			case 0x08: // player position
 				packet.stance = packet.y;
-				client.write(0xd, packet);
+				writePacket(packetNo, 0xd, packet);
 				break;
 			case 0x09: // held item
 			case 0x0a: // use bed
 			case 0x0b: // animation
-				client.write(packet.id + 7, packet);
+				writePacket(packetNo, packet.id + 7, packet);
 				break;
 			case 0x0c: // spawn player (almost the same to spawn named entity in 1.6)
 				packet.name = packet.playerName;
-				client.write(0x14, packet);
+				writePacket(packetNo, 0x14, packet);
 				break;
 			case 0x0d: // collect item
 			case 0x0e: // spawn object
 			case 0x0f: // spawn mob
-				client.write(packet.id + 9, packet);
+				writePacket(packetNo, packet.id + 9, packet);
 				break;
 			case 0x10: // spawn painting
 				packet.name = packet.title;
-				client.write(0x19, packet);
+				writePacket(packetNo, 0x19, packet);
 				break;
 			case 0x11: // spawn exp orb
-				client.write(0x1a, packet);
+				writePacket(packetNo, 0x1a, packet);
 				break;
 			case 0x12: // entity velocity
 			case 0x13: // destory entity
 			case 0x14: // entity
-				client.write(packet.id + 0xa, packet);
+				writePacket(packetNo, packet.id + 0xa, packet);
 				break;
 			case 0x15: // entity relative move
 				packet.dx = packet.dX;
 				packet.dy = packet.dY;
 				packet.dz = packet.dZ;
-				client.write(0x1f, packet);
+				writePacket(packetNo, 0x1f, packet);
 				break;
 			case 0x16: // entity look
-				client.write(0x20, packet);
+				writePacket(packetNo, 0x20, packet);
 				break;
 			case 0x17: // entity look & relative move
 				packet.dx = packet.dX;
 				packet.dy = packet.dY;
 				packet.dz = packet.dZ;
-				client.write(0x21, packet);
+				writePacket(packetNo, 0x21, packet);
 				break;
 			case 0x18: // entity teleport
 			case 0x19: // entity head look
-				client.write(packet.id + 0xa, packet);
+				writePacket(packetNo, packet.id + 0xa, packet);
 				break;
 			case 0x1a: // entity status - may need fix ? /////////////
-				client.write(0x26, packet);
+				writePacket(packetNo, 0x26, packet);
 				break;
 			case 0x1b: // attach entity
 				packet.leash = packet.leash ? 1 : 0
-				client.write(0x27, packet);
+				writePacket(packetNo, 0x27, packet);
 				break;
 			case 0x1c: // entity metadata
 				packet.metadata.forEach(function(submeta) {
@@ -247,17 +262,17 @@ last_packet = packet;
 						}
 					}
 				});
-				client.write(0x28, packet);
+				writePacket(packetNo, 0x28, packet);
 				break;
 			case 0x1d: // entity effect
 			case 0x1e: // remove entity effect
 			case 0x1f: // set exp
 			case 0x20: // entity prop
-				client.write(packet.id + 0xc, packet);
+				writePacket(packetNo, packet.id + 0xc, packet);
 				break;
 			case 0x21: // chunk data
 				if (packet.groundUp && packet.bitMap == 0) { // unload chunk
-					client.write(0x33, packet);
+					writePacket(packetNo, 0x33, packet);
 				} else {
 					zlib.inflate(packet.compressedChunkData, function(err, buffer) {
 						var layers = 0;
@@ -279,9 +294,9 @@ last_packet = packet;
 								}
 							}
 						}
-						deflateData(buffer, function(data) {
+						zlib.deflate(buffer, function(err, data) {
 							packet.compressedChunkData = data;
-							client.write(0x33, packet);
+							writePacket(packetNo, 0x33, packet);
 						});
 					});
 				}
@@ -296,19 +311,18 @@ last_packet = packet;
 						packet.data.writeInt32BE(data, i * 4);
 					}
 				}
-				client.write(0x34, packet);
+				writePacket(packetNo, 0x34, packet);
 				break;
 			case 0x23: // block change
 				var newId = blockAndItemReplace(packet.type);
 				if (newId !== false) packet.type = newId; // must !== (distinguish false & 0 => air)
-				client.write(0x35, packet);
+				writePacket(packetNo, 0x35, packet);
 				break;
 			case 0x24: // block action
 			case 0x25: // block break ani
-				client.write(packet.id + 0x12, packet);
+				writePacket(packetNo, packet.id + 0x12, packet);
 				break;
 			case 0x26: // map chunk bulk
-				//*
 				zlib.inflate(packet.data.compressedChunkData, function(err, buffer) {
 					var layer_offset = 16 * 16 * (packet.data.skyLightSent ? 40 : 32); // 16 + 8 + 8 + [8] + (8 --- won't exist in vailla now, just ignore it OwO --- )
 					var main_offset = 0;
@@ -337,39 +351,36 @@ last_packet = packet;
 						main_offset += layers * layer_offset + 16 * 16;
 					}
 					// compress & send out packet
-					// !!! notice !!! - don't use zlib.deflate, which cause weird behavior
-					deflateData(buffer, function(data) {
+					zlib.deflate(buffer, function(err, data) {
 						packet.data.compressedChunkData = data;
-						client.write(0x38, packet);
+						writePacket(packetNo, 0x38, packet);
 					});
 				});
-				//*/
-				client.write(0x38, packet);
 				break;
 			case 0x27: // explosion
-				client.write(0x3c, packet);
+				writePacket(packetNo, 0x3c, packet);
 				break;
 			case 0x28: // effect
 				if (packet.effectId == 2001) { // block break particle
 					var newId = blockAndItemReplace(packet.data);
 					if (newId !== false) packet.data = newId; // must !== (distinguish false & 0 => air)
 				}
-				client.write(0x3d, packet);
+				writePacket(packetNo, 0x3d, packet);
 				break;
 			case 0x29: // sound effect
 				packet.pitch = packet.pitch > 127 ? 127 : packet.pitch
-				client.write(0x3e, packet);
+				writePacket(packetNo, 0x3e, packet);
 				break;
 			case 0x2a: // particle
-				client.write(0x3f, packet);
+				writePacket(packetNo, 0x3f, packet);
 				break;
 			case 0x2b: // change game state
 			case 0x2c: // spawn global entity
-				client.write(packet.id + 0x1b, packet);
+				writePacket(packetNo, packet.id + 0x1b, packet);
 				break;
 			case 0x2d: // open window
 			case 0x2e: // close window
-				client.write(packet.id + 0x37, packet);
+				writePacket(packetNo, packet.id + 0x37, packet);
 				break;
 			case 0x2f: // set slot
 				if (packet.windowId != 255) { // not sure why there is an packet for 255 be sent ....
@@ -378,8 +389,9 @@ last_packet = packet;
 						packet.item.id = newId;
 						packet.item.itemDamage = packet.item.itemDamage + 128;
 					}
-					client.write(0x67, packet);
-				}
+					writePacket(packetNo, 0x67, packet);
+				} else
+					removePendingPacket(packetNo);
 				break;
 			case 0x30: // window items
 				packet.items.forEach(function(item) {
@@ -389,45 +401,44 @@ last_packet = packet;
 						item.itemDamage = item.itemDamage + 128;
 					}
 				});
-				client.write(0x68, packet);
+				writePacket(packetNo, 0x68, packet);
 				break;
 			case 0x31: // window prop
-				client.write(0x69, packet);
+				writePacket(packetNo, 0x69, packet);
 				break;
 			case 0x32: // confirm transact
-				client.write(0x6a, packet);
+				writePacket(packetNo, 0x6a, packet);
 				break;
 			case 0x33: // update sign
-				client.write(0x82, packet);
+				writePacket(packetNo, 0x82, packet);
 				break;
-			case 0x34: // map
+			//case 0x34: // map
 				////////////////////////////////////////////////////////////////////////////////
-				//client.write(0x83, /* need reparse ... */);
+				//writePacket(packetNo, 0x83, /* need reparse ... */);
 				break;
 			case 0x35: // update tile entity
-				client.write(0x84, packet);
+				writePacket(packetNo, 0x84, packet);
 				break;
 			case 0x36: // sign editor open
-				client.write(0x85, packet);
+				writePacket(packetNo, 0x85, packet);
 				break;
-			case 0x37: // statics
+			//case 0x37: // statics
 				////////////////////////////////////////////////////////////////////////////////
-				//client.write(0xc8, /* need reparse ... */);
+				//writePacket(packetNo, 0xc8, /* need reparse ... */);
 				break;
 			case 0x38: // player list item
-				client.write(0xc9, packet);
+				writePacket(packetNo, 0xc9, packet);
 				break;
 			case 0x39: // player ablities
-				client.write(0xca, packet);
+				writePacket(packetNo, 0xca, packet);
 				break;
-/*
 			case 0x40: // disconnected
-				client.write(0xff, packet);
+				packet.reason = JSON.parse(packet.reason);
+				writePacket(packetNo, 0xff, packet);
 				break;
-*/
 			case 0x3a: // tab complete
 				//
-				client.write(0xcb, {
+				writePacket(0xcb, {
 					text: packet.matches.slice(0,20 /* 20 as limit OwO */ ).join('\u0000')
 				});
 				break;
@@ -435,24 +446,27 @@ last_packet = packet;
 			case 0x3c: // update score
 			case 0x3d: // display socreboard
 			case 0x3e: // teams
-				client.write(packet.id + 0x93, packet);
+				writePacket(packetNo, packet.id + 0x93, packet);
 				break;
 			case 0x3f: // plugin
-				client.write(0xfa, packet);
+				writePacket(packetNo, 0xfa, packet);
 				break;
 			default:
+				removePendingPacket(packetNo);
 console.log(packet);
 				break;
 			}
 		}
 } catch (err) {
 	console.log('s2c', err.stack, packet);
-	client.end();
+	client.end("Packet error!");
 }
 	});
 	
 	client.on('end', function() {
 		mcclient.end("disconnected");
+		delete packet2ClientQueue, packet2ClientPakcets, mcclient;
+delete last_packet;
 		console.log(client.username+' disconnected', '('+addr+')');
 	});
 	
@@ -467,7 +481,7 @@ try {
 			mcclient.write(0x01, packet);
 			break;
 		case 0x07: // use entity
-			packet.leftClick = packet.leftClick === 0
+			packet.mouse = packet.leftClick ? 1 : 0
 			mcclient.write(0x02, packet);
 			break;
 		case 0x0a: // player
@@ -546,16 +560,16 @@ if (packet.payload != 0) mcclient.write(0x16, {payload: 0});
 		}
 } catch (err) {
 	console.log('c2s', err.stack, packet);
-	mcclient.end();
-	client.end();
+	mcclient.end("Packet error!");
+	client.end("Packet error!");
 }
 	});
 	
 	mcclient.on('error', function(error) {
 		console.log('Error:', error);
 console.log( last_packet );
-		mcclient.end("");
-		client.end("");
+		mcclient.end("ERROR!");
+		client.end("ERROR!");
 	});
 	
 	

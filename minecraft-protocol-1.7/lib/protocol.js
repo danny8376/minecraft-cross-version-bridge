@@ -470,7 +470,8 @@ var packets = {
       ],
       0x02: [
         { name: "target", type: "int" },
-        { name: "leftClick", type: "byte" }
+        //{ name: "leftClick", type: "byte" }
+		{ name: "mouse", type: "byte" }
       ],
       0x03: [
         { name: "onGround", type: "bool" }
