@@ -5,11 +5,12 @@
   "main": "bridge.js",
   "repository": {
     "type": "git",
-    "url": "OWO"
+    "url": "https://github.com/danny8376/minecraft-cross-version-bridge.git"
   },
   "author": {
     "name": "DannyAAM"
   },
+  "homepage": "https://github.com/danny8376/minecraft-cross-version-bridge",
   "license": "OWO",
   "engines": {
     "node": ">=0.8.16"
@@ -23,6 +24,6 @@
     "node-uuid": "~1.4.1"
   },
   "bugs": {
-    "url": "OWO"
+    "url": "https://github.com/danny8376/minecraft-cross-version-bridge/issues"
   }
 }
