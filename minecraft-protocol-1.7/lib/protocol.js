@@ -1357,19 +1357,29 @@ function writeSlot(value, buffer, offset) {
 }
 
 function sizeOfString(value) {
-  assert.ok(value.length < STRING_MAX_LENGTH, "string greater than max length");
-  return sizeOfVarInt(value.length) + value.length;
+  //assert.ok(value.length < STRING_MAX_LENGTH, "string greater than max length");
+  //return sizeOfVarInt(value.length) + value.length;
+  var length = Buffer.byteLength(value, 'utf8');
+  assert.ok(length < STRING_MAX_LENGTH, "string greater than max length");
+  return sizeOfVarInt(length) + length;
 }
 
 function sizeOfUString(value) {
-  assert.ok(value.length < SRV_STRING_MAX_LENGTH, "string greater than max length");
-  return sizeOfVarInt(value.length) + value.length;
+  //assert.ok(value.length < SRV_STRING_MAX_LENGTH, "string greater than max length");
+  //return sizeOfVarInt(value.length) + value.length;
+  var length = Buffer.byteLength(value, 'utf8');
+  assert.ok(length < SRV_STRING_MAX_LENGTH, "string greater than max length");
+  return sizeOfVarInt(length) + length;
 }
 
 function writeString(value, buffer, offset) {
-  offset = writeVarInt(value.length, buffer, offset);
-  buffer.write(value, offset, value.length, 'utf8');
-  return offset + value.length;
+  //offset = writeVarInt(value.length, buffer, offset);
+  //buffer.write(value, offset, value.length, 'utf8');
+  //return offset + value.length;
+  var length = Buffer.byteLength(value, 'utf8');
+  offset = writeVarInt(length, buffer, offset);
+  buffer.write(value, offset, length, 'utf8');
+  return offset + length;
 }
 
 function sizeOfAscii(value) {

@@ -93,7 +93,7 @@ var last_packet; // for debug
 		if (no !== false) packet2ClientPakcets[no] = [id, packet];
 		if (packet2ClientQueue[0] + 1000 < no) { // 1000 - i'm not sure why i choose this number XD
 			client.end("Maybe this ridge is too tired!");
-console.log(packet2ClientPakcets[packet2ClientQueue[0]]);
+console.log(packet2ClientQueue[0], packet2ClientPakcets[packet2ClientQueue[0]]);
 		}
 		if (!packet2ClientSending || no === false) { // try to send when free or inner call
 			packet2ClientSending = true; // processing !
@@ -437,8 +437,7 @@ last_packet = packet;
 				writePacket(packetNo, 0xff, packet);
 				break;
 			case 0x3a: // tab complete
-				//
-				writePacket(0xcb, {
+				writePacket(packetNo, 0xcb, {
 					text: packet.matches.slice(0,20 /* 20 as limit OwO */ ).join('\u0000')
 				});
 				break;
@@ -453,7 +452,7 @@ last_packet = packet;
 				break;
 			default:
 				removePendingPacket(packetNo);
-console.log(packet);
+//console.log(packet);
 				break;
 			}
 		}
