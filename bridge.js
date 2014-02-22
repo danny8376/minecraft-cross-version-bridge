@@ -90,11 +90,15 @@ var last_packet; // for debug
 	var packet2ClientPakcets = {};
 	var packet2ClientSending = false;
 	function writePacket(no, id, packet) { // no === false   =>  setImmediate call
-		if (no !== false) packet2ClientPakcets[no] = [id, packet];
+		if (no !== false) {
+			packet2ClientPakcets[no] = packet;
+			packet.targetId = id;
+		}
 		if (packet2ClientQueue[0] + 50000 < no) { // i'm not sure why i choose this number XD
 			client.end("Maybe this ridge is too tired!");
 console.log(packet2ClientQueue[0], packet2ClientPakcets[packet2ClientQueue[0]]);
 		}
+try {
 		if (!packet2ClientSending || no === false) { // try to send when free or inner call
 			packet2ClientSending = true; // processing !
 			var head = packet2ClientQueue[0];
@@ -102,12 +106,16 @@ console.log(packet2ClientQueue[0], packet2ClientPakcets[packet2ClientQueue[0]]);
 			if (packet) { // got packet - send it out!
 				packet2ClientQueue.shift(); // remove first - we have sent it
 				delete packet2ClientPakcets[head]; // remove it form pending list
-				client.write(packet[0], packet[1]); // sent it out~
+				client.write(packet.targetId, packet); // sent it out~
 				setImmediate(function () { writePacket(false) }); // try to send next packet
 			} else { // no packet can be sent - wait for next pending packet
 				packet2ClientSending = false;
 			}
 		}
+} catch (err) {
+	console.log('s2c', err.stack, packet);
+	client.end("Packet error!");
+}
 	}
 	function removePendingPacket(no) {
 		packet2ClientQueue.splice(packet2ClientQueue.indexOf(no), 1);
@@ -115,7 +123,6 @@ console.log(packet2ClientQueue[0], packet2ClientPakcets[packet2ClientQueue[0]]);
 	
 	mcclient.on('packet', function(packet) { // server to clinet (1.7 to 1.6)
 		var packetNo = packet2ClientCount ++;
-try {
 		if (mcclient.state == states.PLAY) { // OWO
 			if (packet.id == 2 && packet.username) { // weird to receive login success packet here - drop it
 				//console.log(packet);
@@ -438,8 +445,14 @@ last_packet = packet;
 				writePacket(packetNo, 0xff, packet);
 				break;
 			case 0x3a: // tab complete
+				var completes = packet.matches.length ? packet.matches[0] : "";
+				for(var i = 1; i < packet.matches.length; i++) {
+					var newCompletes = completes + '\u0000' + packet.matches[i];
+					if (Buffer.byteLength(newCompletes, 'utf16be') > 239) break; // break when length exceed max
+					completes = newCompletes;
+				}
 				writePacket(packetNo, 0xcb, {
-					text: packet.matches.slice(0,20 /* 20 as limit OwO */ ).join('\u0000')
+					text: completes
 				});
 				break;
 			case 0x3b: // scoreboard objective
@@ -457,10 +470,6 @@ last_packet = packet;
 				break;
 			}
 		}
-} catch (err) {
-	console.log('s2c', err.stack, packet);
-	client.end("Packet error!");
-}
 	});
 	
 	client.on('end', function() {

@@ -307,7 +307,7 @@ var packets = {
       0x28: [
         { name: "effectId", type: "int" },
         { name: "x", type: "int" },
-        { name: "y", type: "byte" },
+        { name: "y", type: "ubyte" },
         { name: "z", type: "int" },
         { name: "data", type: "int" },
         { name: "global", type: "bool" }
