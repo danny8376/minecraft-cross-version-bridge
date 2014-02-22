@@ -89,9 +89,9 @@ var last_packet; // for debug
 	var packet2ClientQueue = [];
 	var packet2ClientPakcets = {};
 	var packet2ClientSending = false;
-	function writePacket(no, id, packet) { // no === false   =>  nextTick call
+	function writePacket(no, id, packet) { // no === false   =>  setImmediate call
 		if (no !== false) packet2ClientPakcets[no] = [id, packet];
-		if (packet2ClientQueue[0] + 1000 < no) { // 1000 - i'm not sure why i choose this number XD
+		if (packet2ClientQueue[0] + 50000 < no) { // i'm not sure why i choose this number XD
 			client.end("Maybe this ridge is too tired!");
 console.log(packet2ClientQueue[0], packet2ClientPakcets[packet2ClientQueue[0]]);
 		}
@@ -103,7 +103,7 @@ console.log(packet2ClientQueue[0], packet2ClientPakcets[packet2ClientQueue[0]]);
 				packet2ClientQueue.shift(); // remove first - we have sent it
 				delete packet2ClientPakcets[head]; // remove it form pending list
 				client.write(packet[0], packet[1]); // sent it out~
-				process.nextTick(function () { writePacket(false) }); // try to send next packet
+				setImmediate(function () { writePacket(false) }); // try to send next packet
 			} else { // no packet can be sent - wait for next pending packet
 				packet2ClientSending = false;
 			}
@@ -186,9 +186,10 @@ last_packet = packet;
 			case 0x06: // update health
 				writePacket(packetNo, 0x08, packet);
 				break;
-			case 0x07: // update health
+			case 0x07: // respawn
 				packet.worldHeight = 256;
 				packet.levelType = fixLevelType(packet.levelType);
+				packet.gameMode = packet.gamemode;
 				writePacket(packetNo, 0x09, packet);
 				break;
 			case 0x08: // player position
@@ -546,10 +547,9 @@ try {
 			mcclient.write(0x15, packet);
 			break;
 		case 0xcd: // client status
-//console.log(packet);
-//if (packet.payload == 0) mcclient.write(0x16, {payload: 1});
-if (packet.payload != 0) mcclient.write(0x16, {payload: 0});
-			//mcclient.write(0x16, packet);
+			mcclient.write(0x16, {
+				payload: packet.payload == 0 ? 1 : 0
+			});
 			break;
 		case 0xfa: // plugin
 			mcclient.write(0x17, packet);
