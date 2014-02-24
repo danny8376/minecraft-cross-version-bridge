@@ -9,6 +9,14 @@ var remote_server = {
 	port: 25565,
 };
 
+
+
+
+
+
+
+
+
 var options = {
 	port: 25665,
 	'online-mode': false
@@ -16,7 +24,42 @@ var options = {
 
 var server = mc16.createServer(options);
 
-server.on("connection", function(client) {
+server.on("connection", onConnection);
+
+server.on('error', function(error) { console.log('Error:', error); });
+
+server.on('listening', function() { console.log('Server listening on port', server.socketServer.address().port); });
+
+server.on('login', function(client) {
+	mcauth(client.serverHost, client.username, function(err, data) {
+		if (err) {
+			client.write(0xff, { reason: "Server Error!" });
+			console.log(err);
+		} else {
+			if (data.error && !data.ban) client.write(0xff, { reason: data.error });
+			else {
+				if (data.result == 'Online') {
+					//client.write(0xff, { reason: 'Preium User => change port to 34985\n(append ":34985" to the end of server address)' });
+clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
+				} else if (data.result == 'Port') {
+					clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
+				} else {
+					clientLoggedIn(client, ip2RealIpPacket(client.socket, 0));
+				}
+			}
+		}
+	});
+});
+
+
+
+
+
+
+
+
+
+function onConnection(client) {
 	client.removeAllListeners(0xfe); // remove default ping
 	client.once(0xfe, onPing); // my new ping
 	function onPing(packet) {
@@ -46,7 +89,7 @@ server.on("connection", function(client) {
 	function onHandshake(packet) {
 		client.serverHost = packet.serverHost;
 	}
-});
+}
 
 function ip2RealIpPacket(socket, flag) {
 	var packet = {}
@@ -75,28 +118,6 @@ function ip2RealIpPacket(socket, flag) {
 	// return
 	return packet;
 }
-
-server.on('login', function(client) {
-	mcauth(client.serverHost, client.username, function(err, data) {
-		if (err) {
-			client.write(0xff, { reason: "Server Error!" });
-			console.log(err);
-		} else {
-			if (data.error && !data.ban) client.write(0xff, { reason: data.error });
-			else {
-				if (data.result == 'Online') {
-					//client.write(0xff, { reason: "Preium User => change port to 34985" });
-clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
-				} else if (data.result == 'Port') {
-					clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
-				} else {
-					clientLoggedIn(client, ip2RealIpPacket(client.socket, 0));
-				}
-			}
-		}
-	});
-});
-
 
 function clientLoggedIn(client, realip) {
 	var mcclient = mc17.createClient({
@@ -636,15 +657,4 @@ console.log( last_packet );
 		mcclient.end("ERROR!");
 		client.end("ERROR!");
 	});
-	
-	
-	
 }
-
-server.on('error', function(error) {
-	console.log('Error:', error);
-});
-
-server.on('listening', function() {
-	console.log('Server listening on port', server.socketServer.address().port);
-});
