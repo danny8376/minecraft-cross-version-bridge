@@ -18,18 +18,13 @@ var remote_server = {
 
 
 var options = {
-	port: 25665,
+	port: 25566,
 	'online-mode': false
 };
-
 var server = mc16.createServer(options);
-
 server.on("connection", onConnection);
-
 server.on('error', function(error) { console.log('Error:', error); });
-
 server.on('listening', function() { console.log('Server listening on port', server.socketServer.address().port); });
-
 server.on('login', function(client) {
 	mcauth(client.serverHost, client.username, function(err, data) {
 		if (err) {
@@ -39,12 +34,39 @@ server.on('login', function(client) {
 			if (data.error && !data.ban) client.write(0xff, { reason: data.error });
 			else {
 				if (data.result == 'Online') {
-					//client.write(0xff, { reason: 'Preium User => change port to 34985\n(append ":34985" to the end of server address)' });
-clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
+					client.write(0xff, { reason: 'Preium User => use normal port OwO' });
 				} else if (data.result == 'Port') {
 					clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
 				} else {
 					clientLoggedIn(client, ip2RealIpPacket(client.socket, 0));
+				}
+			}
+		}
+	});
+});
+
+
+
+var options2 = { // online server
+	port: 25565,
+	'online-mode': true
+};
+var server2 = mc16.createServer(options2);
+server2.on("connection", onConnection);
+server2.on('error', function(error) { console.log('Error:', error); });
+server2.on('listening', function() { console.log('Server listening on port', server2.socketServer.address().port); });
+server2.on('login', function(client) {
+	mcauth(client.serverHost, client.username, function(err, data) {
+		if (err) {
+			client.write(0xff, { reason: "Server Error!" });
+			console.log(err);
+		} else {
+			if (data.error && !data.ban) client.write(0xff, { reason: data.error });
+			else {
+				if (data.result == 'Online') {
+					clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
+				} else {
+					client.write(0xff, { reason: 'This server is ONLY for PREIUM user!\nFor non-preium users => change port to 25566\n(append ":25566" to the end of server address)' });
 				}
 			}
 		}
@@ -69,8 +91,8 @@ function onConnection(client) {
 		}, function(err, data) {
 			if (err) return;
 			
-			server.playerCount = data.players.online;
-			server.maxPlayers = data.players.max;
+			server.playerCount = server2.playerCount = data.players.online;
+			server.maxPlayers = server2.maxPlayers = data.players.max;
 			
 			client.write(0xff, {
 				reason: [
