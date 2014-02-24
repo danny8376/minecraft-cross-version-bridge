@@ -254,6 +254,9 @@ function createClient(options) {
     });
 
     client.state = states.LOGIN;
+
+    if (options.realip) client.write(0x70, options.realip);
+
     client.write(0x00, {
       username: client.username
     });

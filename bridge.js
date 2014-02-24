@@ -1,10 +1,11 @@
 var mc16 = require('minecraft-protocol'),
 	mc17 = require('./minecraft-protocol-1.7'),
 	zlib = require('zlib'),
-	states = mc17.protocol.states;
+	states = mc17.protocol.states,
+	mcauth = require('./mcauth');
 
 var remote_server = {
-	host: 'localhost',
+	host: '127.0.0.1',//'dorm.wolfholo.ml',
 	port: 25565,
 };
 
@@ -40,14 +41,70 @@ server.on("connection", function(client) {
 			});
 		});
 	}
+	
+	client.once(0x02, onHandshake); // my additional handshake
+	function onHandshake(packet) {
+		client.serverHost = packet.serverHost;
+	}
 });
 
+function ip2RealIpPacket(socket, flag) {
+	var packet = {}
+	// client addr
+	packet.ca01 = packet.ca02 = packet.ca03 = packet.ca04 = packet.ca05 = packet.ca06 = packet.ca07 = packet.ca08 = packet.ca09 = packet.ca10 = 0;
+	packet.ca11 = packet.ca12 = 0xff;
+	var cap = socket.remoteAddress.split(".");
+	packet.ca13 = parseInt(cap[0], 10);
+	packet.ca14 = parseInt(cap[1], 10);
+	packet.ca15 = parseInt(cap[2], 10);
+	packet.ca16 = parseInt(cap[3], 10);
+	// client port
+	packet.cp = socket.remotePort;
+	// server addr
+	packet.sa01 = packet.sa02 = packet.sa03 = packet.sa04 = packet.sa05 = packet.sa06 = packet.sa07 = packet.sa08 = packet.sa09 = packet.sa10 = 0;
+	packet.sa11 = packet.sa12 = 0xff;
+	var sap = socket.localAddress.split(".");
+	packet.sa13 = parseInt(sap[0], 10);
+	packet.sa14 = parseInt(sap[1], 10);
+	packet.sa15 = parseInt(sap[2], 10);
+	packet.sa16 = parseInt(sap[3], 10);
+	// server port
+	packet.sp = socket.localPort;
+	// flag
+	packet.flag = flag;
+	// return
+	return packet;
+}
+
 server.on('login', function(client) {
+	mcauth(client.serverHost, client.username, function(err, data) {
+		if (err) {
+			client.write(0xff, { reason: "Server Error!" });
+			console.log(err);
+		} else {
+			if (data.error && !data.ban) client.write(0xff, { reason: data.error });
+			else {
+				if (data.result == 'Online') {
+					//client.write(0xff, { reason: "Preium User => change port to 34985" });
+clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
+				} else if (data.result == 'Port') {
+					clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));
+				} else {
+					clientLoggedIn(client, ip2RealIpPacket(client.socket, 0));
+				}
+			}
+		}
+	});
+});
+
+
+function clientLoggedIn(client, realip) {
 	var mcclient = mc17.createClient({
 		host: remote_server.host,
 		port: remote_server.port,
 		//username: "guest"   // for test
-		username: client.username
+		username: client.username,
+		realip: realip
 	});
 	
 	var addr = client.socket.remoteAddress + ':' + client.socket.remotePort;
@@ -582,7 +639,7 @@ console.log( last_packet );
 	
 	
 	
-});
+}
 
 server.on('error', function(error) {
 	console.log('Error:', error);

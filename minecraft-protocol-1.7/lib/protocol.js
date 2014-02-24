@@ -61,7 +61,45 @@ var packets = {
       0x01: [
         { name: "sharedSecret", type: "byteArray16" },
         { name: "verifyToken", type: "byteArray16" }
-      ]
+      ],
+	  // my own special packet
+	  0x70: [
+        { name: "ca01", type: "ubyte" },
+        { name: "ca02", type: "ubyte" },
+        { name: "ca03", type: "ubyte" },
+        { name: "ca04", type: "ubyte" },
+        { name: "ca05", type: "ubyte" },
+        { name: "ca06", type: "ubyte" },
+        { name: "ca07", type: "ubyte" },
+        { name: "ca08", type: "ubyte" },
+        { name: "ca09", type: "ubyte" },
+        { name: "ca10", type: "ubyte" },
+        { name: "ca11", type: "ubyte" },
+        { name: "ca12", type: "ubyte" },
+        { name: "ca13", type: "ubyte" },
+        { name: "ca14", type: "ubyte" },
+        { name: "ca15", type: "ubyte" },
+        { name: "ca16", type: "ubyte" },
+        { name: "cp", type: "ushort" },
+        { name: "sa01", type: "ubyte" },
+        { name: "sa02", type: "ubyte" },
+        { name: "sa03", type: "ubyte" },
+        { name: "sa04", type: "ubyte" },
+        { name: "sa05", type: "ubyte" },
+        { name: "sa06", type: "ubyte" },
+        { name: "sa07", type: "ubyte" },
+        { name: "sa08", type: "ubyte" },
+        { name: "sa09", type: "ubyte" },
+        { name: "sa10", type: "ubyte" },
+        { name: "sa11", type: "ubyte" },
+        { name: "sa12", type: "ubyte" },
+        { name: "sa13", type: "ubyte" },
+        { name: "sa14", type: "ubyte" },
+        { name: "sa15", type: "ubyte" },
+        { name: "sa16", type: "ubyte" },
+        { name: "sp", type: "ushort" },
+        { name: "flag", type: "byte" }
+	  ]
     }
   },
   "play": {
