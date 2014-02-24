@@ -661,6 +661,28 @@ try {
 			});
 			break;
 		case 0xfa: // plugin
+			if (packet.channel === 'MC|AdvCdm') { // command block
+				// read data from old buffer
+				var x = packet.data.readInt32BE(0);
+				var y = packet.data.readInt32BE(4);
+				var z = packet.data.readInt32BE(8);
+				var l = packet.data.readInt16BE(12);
+				var s = "";
+				for (var i = 0; i < l; i++) s += String.fromCharCode(packet.data.readUInt16BE(14 + i * 2));
+				var l = Buffer.byteLength(s, 'utf8');
+				if (l > 0x3fff) return; // command too long, drop it
+				// create new buffer
+				packet.data = new Buffer(13 + l + (l > 0x7f ? 2 : 1)); // 1 + 4 * 3 + varint (1 or 2) + sizeOfString
+				// write back data to new buffer with new formation
+				packet.data.writeInt8(0x00, 0);
+				packet.data.writeInt32BE(x, 1);
+				packet.data.writeInt32BE(y, 5);
+				packet.data.writeInt32BE(z, 9);
+				if (l > 0x7f) packet.data.writeUInt8((l & 0xFF) | 0x80, 13);
+				packet.data.writeUInt8(l > 0x7f ? (l >> 7) : l, l > 0x7f ? 14 : 13);
+				packet.data.write(s, l > 0x7f ? 15 : 14, l, 'utf8');
+			}
+			// send out packet
 			mcclient.write(0x17, packet);
 			break;
 		default:
