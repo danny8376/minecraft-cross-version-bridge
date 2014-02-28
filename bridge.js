@@ -5,7 +5,7 @@ var mc16 = require('minecraft-protocol'),
 	mcauth = require('./mcauth');
 
 var remote_server = {
-	host: '127.0.0.1',//'dorm.wolfholo.ml',
+	host: 'dorm.wolfholo.ml',
 	port: 25565,
 };
 
@@ -18,6 +18,7 @@ var remote_server = {
 
 
 var options = {
+	host: '::',
 	port: 25566,
 	'online-mode': false
 };
@@ -31,6 +32,7 @@ server.on('login', function(client) {
 			client.write(0xff, { reason: "Server Error!" });
 			console.log(err);
 		} else {
+clientLoggedIn(client, ip2RealIpPacket(client.socket, 1));return;
 			if (data.error && !data.ban) client.write(0xff, { reason: data.error });
 			else {
 				if (data.result == 'Online') {
@@ -48,6 +50,7 @@ server.on('login', function(client) {
 
 
 var options2 = { // online server
+	host: '::',
 	port: 25565,
 	'online-mode': true
 };
@@ -116,23 +119,55 @@ function onConnection(client) {
 function ip2RealIpPacket(socket, flag) {
 	var packet = {}
 	// client addr
-	packet.ca01 = packet.ca02 = packet.ca03 = packet.ca04 = packet.ca05 = packet.ca06 = packet.ca07 = packet.ca08 = packet.ca09 = packet.ca10 = 0;
-	packet.ca11 = packet.ca12 = 0xff;
-	var cap = socket.remoteAddress.split(".");
-	packet.ca13 = parseInt(cap[0], 10);
-	packet.ca14 = parseInt(cap[1], 10);
-	packet.ca15 = parseInt(cap[2], 10);
-	packet.ca16 = parseInt(cap[3], 10);
+	if (socket.remoteAddress.indexOf(":") !== -1) { // ipv6
+		var addr = socket.remoteAddress;
+		var rpl = 8 - addr.split(":").length;
+		addr = addr.replace("::", ":" + (function(l){
+			var a = [];
+			for (var i = 0; i < l; i++) a.push(0);
+			return a;
+		})(rpl + 1).join(":") + ":");
+		var cap = addr.split(":");
+		cap.forEach(function(ele, idx) {
+			var capp = parseInt(cap[idx], 16);
+			packet[(idx * 2 + 1) < 10 ? ('ca0' + (idx * 2 + 1)) : ('ca' + (idx * 2 + 1))] = (capp >> 8);
+			packet[(idx * 2 + 2) < 10 ? ('ca0' + (idx * 2 + 2)) : ('ca' + (idx * 2 + 2))] = (capp & 0xff);
+		});
+	} else { // ipv4
+		packet.ca01 = packet.ca02 = packet.ca03 = packet.ca04 = packet.ca05 = packet.ca06 = packet.ca07 = packet.ca08 = packet.ca09 = packet.ca10 = 0;
+		packet.ca11 = packet.ca12 = 0xff;
+		var cap = socket.remoteAddress.split(".");
+		packet.ca13 = parseInt(cap[0], 10);
+		packet.ca14 = parseInt(cap[1], 10);
+		packet.ca15 = parseInt(cap[2], 10);
+		packet.ca16 = parseInt(cap[3], 10);
+	}
 	// client port
 	packet.cp = socket.remotePort;
 	// server addr
-	packet.sa01 = packet.sa02 = packet.sa03 = packet.sa04 = packet.sa05 = packet.sa06 = packet.sa07 = packet.sa08 = packet.sa09 = packet.sa10 = 0;
-	packet.sa11 = packet.sa12 = 0xff;
-	var sap = socket.localAddress.split(".");
-	packet.sa13 = parseInt(sap[0], 10);
-	packet.sa14 = parseInt(sap[1], 10);
-	packet.sa15 = parseInt(sap[2], 10);
-	packet.sa16 = parseInt(sap[3], 10);
+	if (socket.localAddress.indexOf(":") !== -1) { // ipv6
+		var addr = socket.localAddress;
+		var rpl = 8 - addr.split(":").length;
+		addr = addr.replace("::", ":" + (function(l){
+			var a = [];
+			for (var i = 0; i < l; i++) a.push(0);
+			return a;
+		})(rpl + 1).join(":") + ":");
+		var sap = addr.split(":");
+		sap.forEach(function(ele, idx) {
+			var sapp = parseInt(sap[idx], 16);
+			packet[(idx * 2 + 1) < 10 ? ('sa0' + (idx * 2 + 1)) : ('sa' + (idx * 2 + 1))] = (sapp >> 8);
+			packet[(idx * 2 + 2) < 10 ? ('sa0' + (idx * 2 + 2)) : ('sa' + (idx * 2 + 2))] = (sapp & 0xff);
+		});
+	} else { // ipv4
+		packet.sa01 = packet.sa02 = packet.sa03 = packet.sa04 = packet.sa05 = packet.sa06 = packet.sa07 = packet.sa08 = packet.sa09 = packet.sa10 = 0;
+		packet.sa11 = packet.sa12 = 0xff;
+		var sap = socket.localAddress.split(".");
+		packet.sa13 = parseInt(sap[0], 10);
+		packet.sa14 = parseInt(sap[1], 10);
+		packet.sa15 = parseInt(sap[2], 10);
+		packet.sa16 = parseInt(sap[3], 10);
+	}
 	// server port
 	packet.sp = socket.localPort;
 	// flag
