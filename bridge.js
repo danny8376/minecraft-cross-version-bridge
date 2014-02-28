@@ -119,7 +119,7 @@ function onConnection(client) {
 function ip2RealIpPacket(socket, flag) {
 	var packet = {}
 	// client addr
-	if (socket.remoteAddress.indexOf(":") !== -1) { // ipv6
+	if (socket.remoteAddress.indexOf(":") !== -1 && socket.remoteAddress.indexOf("::ffff:") === -1) { // ipv6
 		var addr = socket.remoteAddress;
 		var rpl = 8 - addr.split(":").length;
 		addr = addr.replace("::", ":" + (function(l){
@@ -136,7 +136,7 @@ function ip2RealIpPacket(socket, flag) {
 	} else { // ipv4
 		packet.ca01 = packet.ca02 = packet.ca03 = packet.ca04 = packet.ca05 = packet.ca06 = packet.ca07 = packet.ca08 = packet.ca09 = packet.ca10 = 0;
 		packet.ca11 = packet.ca12 = 0xff;
-		var cap = socket.remoteAddress.split(".");
+		var cap = socket.remoteAddress.replace("::ffff:", "").split(".");
 		packet.ca13 = parseInt(cap[0], 10);
 		packet.ca14 = parseInt(cap[1], 10);
 		packet.ca15 = parseInt(cap[2], 10);
@@ -145,7 +145,7 @@ function ip2RealIpPacket(socket, flag) {
 	// client port
 	packet.cp = socket.remotePort;
 	// server addr
-	if (socket.localAddress.indexOf(":") !== -1) { // ipv6
+	if (socket.localAddress.indexOf(":") !== -1 && socket.localAddress.indexOf("::ffff:") === -1) { // ipv6
 		var addr = socket.localAddress;
 		var rpl = 8 - addr.split(":").length;
 		addr = addr.replace("::", ":" + (function(l){
@@ -162,7 +162,7 @@ function ip2RealIpPacket(socket, flag) {
 	} else { // ipv4
 		packet.sa01 = packet.sa02 = packet.sa03 = packet.sa04 = packet.sa05 = packet.sa06 = packet.sa07 = packet.sa08 = packet.sa09 = packet.sa10 = 0;
 		packet.sa11 = packet.sa12 = 0xff;
-		var sap = socket.localAddress.split(".");
+		var sap = socket.localAddress.replace("::ffff:", "").split(".");
 		packet.sa13 = parseInt(sap[0], 10);
 		packet.sa14 = parseInt(sap[1], 10);
 		packet.sa15 = parseInt(sap[2], 10);
